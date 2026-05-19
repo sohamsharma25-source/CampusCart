@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>CampusCart | Student Marketplace with Details & Filters</title>
+    <!-- Google Fonts + Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">   
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOGIN SECTION -->
+<div id="loginSection" class="login-container">
+    <div class="login-card">
+        <h2><i class="fas fa-graduation-cap"></i> CampusCart</h2>
+        <p>Secure marketplace · Only @pccoepune.org</p>
+        <div class="input-group">
+            <label><i class="fas fa-envelope"></i> College Email</label>
+            <input type="email" id="loginEmail" placeholder="student@pccoepune.org">
+        </div>
+        <div class="input-group">
+            <label><i class="fas fa-lock"></i> Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••">
+        </div>
+        <button id="doLoginBtn" class="login-btn"><i class="fas fa-sign-in-alt"></i> Login</button>
+        <div id="loginErrorMsg" class="error-msg" style="display: none;"></div>
+        <p style="font-size: 0.75rem; text-align: center; margin-top: 1.2rem;">🔒 Only <strong>@pccoepune.org</strong> emails allowed</p>
+    </div>
+</div>
+
+<!-- MAIN APPLICATION -->
+<div id="mainApp" class="main-app">
+    <div class="navbar">
+        <div class="logo">
+            <h1>CampusCart</h1>
+            <span>student-only marketplace</span>
+        </div>
+        <ul class="nav-links">
+            <li><button class="nav-btn" data-page="home"><i class="fas fa-home"></i> Home</button></li>
+            <li><button class="nav-btn" data-page="products"><i class="fas fa-store"></i> Products</button></li>
+            <li><button class="nav-btn" data-page="sell"><i class="fas fa-plus-circle"></i> Sell</button></li>
+            <li><button class="nav-btn" data-page="about"><i class="fas fa-info-circle"></i> About</button></li>
+            <li><button class="nav-btn" data-page="feedback"><i class="fas fa-star"></i> Feedback</button></li>
+            <li><button class="nav-btn" data-page="contact"><i class="fas fa-envelope-open-text"></i> Contact</button></li>
+        </ul>
+        <div class="user-info">
+            <i class="fas fa-user-check"></i>
+            <span id="userEmailDisplay"></span>
+            <button id="logoutBtnMain" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
+    </div>
+
+    <div class="page-container">
+        <!-- HOME PAGE (featured products) -->
+        <div id="homePage" class="page">
+            <div style="background: linear-gradient(120deg, #e9f5f9, white); border-radius: 2rem; padding: 1.5rem 2rem; margin-bottom: 2rem;">
+                <h2><i class="fas fa-hand-peace"></i> Welcome to CampusCart</h2>
+                <p>Your trusted college-only marketplace for books, lab coats, calculators & more. Buy and sell sustainably within the campus community.</p>
+            </div>
+            <h3> Featured Listings</h3>
+            <div id="featuredGrid" class="products-grid">
+                <!-- dynamic featured products -->
+            </div>
+        </div>
+
+        <!-- PRODUCTS PAGE (full listing) with filter & sort -->
+        <div id="productsPage" class="page">
+            <h2><i class="fas fa-boxes"></i> All Available Items</h2>
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label><i class="fas fa-filter"></i> Category:</label>
+                    <select id="categoryFilter">
+                        <option value="all">All Categories</option>
+                        <option>Books</option><option>Lab Coats / Uniforms</option>
+                        <option>Calculators</option><option>Stationery</option>
+                        <option>Electronics</option><option>Other</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label><i class="fas fa-sort-amount-down"></i> Sort by:</label>
+                    <select id="sortSelect">
+                        <option value="newest">Newest First</option>
+                        <option value="priceLowHigh">Price: Low to High</option>
+                        <option value="priceHighLow">Price: High to Low</option>
+                    </select>
+                </div>
+                <button id="resetFiltersBtn" class="reset-filter"><i class="fas fa-undo-alt"></i> Reset</button>
+            </div>
+            <div id="allProductsGrid" class="products-grid">
+                <!-- dynamic product cards with delete buttons for owner -->
+            </div>
+        </div>
+
+        <!-- SELL PAGE with photo upload -->
+        <div id="sellPage" class="page">
+            <h2 style="margin-bottom: 0.5rem;"><i class="fas fa-camera"></i> List an Item with Photo</h2>
+            <p style="margin-bottom: 1rem;">Sell your academic essentials — add a clear image for better reach.</p>
+            <div class="sell-form">
+                <div class="form-row">
+                    <label>Product Name *</label>
+                    <input type="text" id="productName" placeholder="e.g., Engineering Drawing Book">
+                </div>
+                <div class="form-row">
+                    <label>Category</label>
+                    <select id="productCategory">
+                        <option>Books</option><option>Lab Coats / Uniforms</option>
+                        <option>Calculators</option><option>Stationery</option>
+                        <option>Electronics</option><option>Other</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Price (₹) *</label>
+                    <input type="number" id="productPrice" placeholder="e.g., 350">
+                </div>
+                <div class="form-row">
+                    <label>Condition</label>
+                    <select id="productCondition">
+                        <option>Like New</option><option>Very Good</option>
+                        <option>Good</option><option>Acceptable</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Description *</label>
+                    <textarea rows="3" id="productDesc" placeholder="Describe item, reason for selling etc."></textarea>
+                </div>
+                <div class="form-row">
+                    <label>📸 Upload Photo (JPEG/PNG)</label>
+                    <input type="file" id="productImage" accept="image/jpeg,image/png,image/jpg">
+                    <div class="image-preview" id="imagePreviewContainer"></div>
+                </div>
+                <button id="submitProductBtn" class="submit-sell"><i class="fas fa-cloud-upload-alt"></i> Post Listing with Photo</button>
+                <p style="font-size: 0.75rem; margin-top: 1rem;"><i class="fas fa-shield-alt"></i> Your listing will appear immediately. You can delete your own listings later.</p>
+            </div>
+        </div>
+
+        <!-- ABOUT PAGE -->
+        <div id="aboutPage" class="page">
+            <div style="background: white; border-radius: 1.5rem; padding: 1.8rem;">
+                <h2><i class="fas fa-university"></i> About CampusCart</h2>
+                <p style="margin: 1rem 0;">CampusCart is a secure, student-only web platform designed exclusively for college students to buy and sell academic essentials — lab coats, calculators, textbooks, and more. Our mission is to promote reuse of resources, affordability, and safe on-campus transactions.</p>
+                <h3> Objectives</h3>
+                <ul style="margin: 0.8rem 0 1rem 1.5rem;">
+                    <li>Provide a secure student-only marketplace</li>
+                    <li>Promote reuse of academic resources</li>
+                    <li>Simplify buying and selling within campus</li>
+                    <li>Ensure safe communication through college email IDs</li>
+                </ul>
+                <h3> Security First</h3>
+                <p>Login restricted to <strong>@pccoepune.org</strong> email addresses. No direct phone number sharing, and all communication is routed via email.</p>
+            </div>
+        </div>
+
+        <!-- FEEDBACK (placeholder) -->
+        <div id="feedbackPage" class="page">
+            <div class="placeholder-card">
+                <i class="fas fa-comment-dots" style="font-size: 2.2rem;"></i>
+                <h3> Feedback System – Coming Soon</h3>
+                <p>Ratings and reviews will be available in future updates.</p>
+            </div>
+        </div>
+
+        <!-- CONTACT (placeholder) -->
+        <div id="contactPage" class="page">
+            <div class="placeholder-card">
+                <i class="fas fa-envelope" style="font-size: 2rem;"></i>
+                <h3> Email-Based Communication</h3>
+                <p>For support: <strong>support@campuscart.org</strong> (demo). Full privacy via college emails.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <i class="fas fa-graduation-cap"></i> CampusCart – secure student marketplace | Only @pccoepune.org
+    </footer>
+</div>
+
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <img id="modalImg" class="modal-img" src="" alt="Product">
+        <div class="modal-body">
+            <h2 id="modalTitle"></h2>
+            <div class="modal-detail-row"><span><strong> Price</strong></span><span id="modalPrice"></span></div>
+            <div class="modal-detail-row"><span><strong> Category</strong></span><span id="modalCategory"></span></div>
+            <div class="modal-detail-row"><span><strong> Condition</strong></span><span id="modalCondition"></span></div>
+            <div class="modal-detail-row"><span><strong> Seller</strong></span><span id="modalSeller"></span></div>
+            <div class="modal-detail-row"><span><strong> Listed on</strong></span><span id="modalDate"></span></div>
+            <div style="margin: 1rem 0;"><strong> Description</strong><br><p id="modalDesc" style="margin-top:0.4rem;"></p></div>
+            <button class="modal-close" id="closeModalBtn"><i class="fas fa-times"></i> Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
