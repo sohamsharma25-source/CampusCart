@@ -161,6 +161,63 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
+// -------- Firestore sync & migration helpers --------
+async function loadFirestoreProducts() {
+    if (!window.firestore) return;
+    try {
+        const snapshot = await window.firestore.collection('products').orderBy('date', 'desc').get();
+        const remote = snapshot.docs.map(d => ({ firebaseDocId: d.id, ...d.data() }));
+        // Append remote items after local ones but avoid exact id collisions
+        const existingIds = new Set(allProducts.map(p => p.id));
+        remote.forEach(r => {
+            // If remote product uses numeric id that collides, keep both by not overwriting
+            if (!existingIds.has(r.id)) {
+                allProducts.push(r);
+            }
+        });
+        renderAllProductPages();
+        showToast('Loaded remote listings', 'success');
+    } catch (err) {
+        console.error('Failed loading Firestore products', err);
+    }
+}
+
+function dataURLtoFile(dataurl, filename) {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while(n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename || 'image.png', { type: mime });
+}
+
+async function migrateLocalProductsToFirestore() {
+    if (!window.addProductToFirestore || !window.uploadImageWithProgress) return;
+    const toMigrate = allProducts.filter(p => !p.firebaseDocId);
+    if (!toMigrate.length) return;
+    if (!confirm(`Found ${toMigrate.length} local listings. Upload them to Firebase?`)) return;
+    for (const p of toMigrate) {
+        try {
+            const prod = Object.assign({}, p);
+            // If imageDataURL is a data URL, convert and upload
+            if (prod.imageDataURL && prod.imageDataURL.startsWith('data:')) {
+                const file = dataURLtoFile(prod.imageDataURL, `prod_${prod.id}.png`);
+                const url = await window.uploadImageAndGetURL(file, 'products/');
+                prod.imageDataURL = url;
+            }
+            const docRef = await window.addProductToFirestore(prod);
+            p.firebaseDocId = docRef.id;
+            saveProductsToStorage();
+        } catch (err) {
+            console.error('Migration error for product', p, err);
+        }
+    }
+    showToast('Migration complete', 'success');
+}
+
 // ============================================
 // WISHLIST FUNCTIONS
 // ============================================
@@ -648,6 +705,7 @@ function setupFilters() {
 // IMAGE UPLOAD HANDLER
 // ============================================
 let selectedImageDataURL = null;
+let selectedImageFile = null;
 const imageInput = document.getElementById('productImage');
 const previewContainer = document.getElementById('imagePreviewContainer');
 
@@ -655,18 +713,20 @@ if (imageInput) {
     imageInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file && (file.type.startsWith('image/'))) {
+            selectedImageFile = file;
             const reader = new FileReader();
             reader.onload = function(ev) {
                 selectedImageDataURL = ev.target.result;
                 if (previewContainer) {
                     previewContainer.innerHTML = `<img src="${selectedImageDataURL}" alt="preview"><button type="button" id="clearPreviewBtn" style="background:#e74c3c; border:none; padding:0.2rem 0.6rem; border-radius:1rem; color:white; margin-left:0.5rem;">Remove</button>`;
                     const clearBtn = document.getElementById('clearPreviewBtn');
-                    if (clearBtn) clearBtn.onclick = () => { selectedImageDataURL = null; imageInput.value = ''; if(previewContainer) previewContainer.innerHTML = ''; };
+                    if (clearBtn) clearBtn.onclick = () => { selectedImageDataURL = null; selectedImageFile = null; imageInput.value = ''; if(previewContainer) previewContainer.innerHTML = ''; };
                 }
             };
             reader.readAsDataURL(file);
         } else {
             selectedImageDataURL = null;
+            selectedImageFile = null;
             if (previewContainer) previewContainer.innerHTML = '<span style="color:red;">Invalid image file</span>';
         }
     });
@@ -707,8 +767,48 @@ function setupSellForm() {
             date: new Date().toISOString(),
             imageDataURL: selectedImageDataURL || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23b0bec5'/%3E%3Ctext x='50' y='55' fill='white' text-anchor='middle'%3E📷 No Photo%3C/text%3E%3C/svg%3E"
         };
+        // Always keep the local sample/products behavior: add product locally first
         addProduct(newProduct);
         alert('✅ Product listed successfully!');
+
+        // If Firebase is configured, attempt background upload to Storage + Firestore
+        if (window.firebaseConfig && window.firebaseConfig.apiKey && window.firebaseConfig.apiKey !== 'YOUR_API_KEY' && window.uploadImageWithProgress && window.addProductToFirestore) {
+            // show a small progress element near submit button
+            let statusEl = document.getElementById('uploadStatus');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'uploadStatus';
+                statusEl.style.marginTop = '0.6rem';
+                statusEl.style.fontSize = '0.9rem';
+                statusEl.style.color = 'var(--text-gray)';
+                const submit = document.getElementById('submitProductBtn');
+                if (submit && submit.parentNode) submit.parentNode.insertBefore(statusEl, submit.nextSibling);
+            }
+            (async () => {
+                try {
+                    const prodForUpload = Object.assign({}, newProduct);
+                    if (selectedImageFile) {
+                        statusEl.innerText = 'Uploading image: 0%';
+                        const url = await window.uploadImageWithProgress(selectedImageFile, 'products/', (pct) => {
+                            statusEl.innerText = `Uploading image: ${pct}%`;
+                        });
+                        prodForUpload.imageDataURL = url;
+                    }
+                    statusEl.innerText = 'Saving listing...';
+                    const docRef = await window.addProductToFirestore(prodForUpload);
+                    // mark local product as uploaded
+                    const local = allProducts.find(p => p.id === newProduct.id);
+                    if (local) local.firebaseDocId = docRef.id;
+                    saveProductsToStorage();
+                    statusEl.innerText = 'Uploaded to Firebase ✓';
+                    setTimeout(() => statusEl && (statusEl.innerText = ''), 3000);
+                    showToast('Listing uploaded to Firebase', 'success');
+                } catch (err) {
+                    console.error('Firebase upload error', err);
+                    showToast('Firebase upload failed (kept locally)', 'error');
+                }
+            })();
+        }
         document.getElementById('productName').value = '';
         document.getElementById('productPrice').value = '';
         document.getElementById('productDesc').value = '';
@@ -716,6 +816,7 @@ function setupSellForm() {
         document.getElementById('productCondition').selectedIndex = 0;
         if (imageInput) imageInput.value = '';
         selectedImageDataURL = null;
+        selectedImageFile = null;
         if (previewContainer) previewContainer.innerHTML = '';
         switchPage('products');
     });
@@ -741,11 +842,50 @@ function showLoginError(msg) {
     setTimeout(() => errDiv.style.display = 'none', 2800);
 }
 
+function getLoginErrorMessage(err) {
+    const code = err && err.code ? err.code : '';
+    const message = err && err.message ? err.message : '';
+
+    if (code === 'auth/invalid-login-credentials' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+        return 'Invalid email or password. If this is a new account, make sure it exists in Firebase Authentication and email/password sign-in is enabled.';
+    }
+
+    if (code === 'auth/operation-not-allowed') {
+        return 'Email/password sign-in is disabled in Firebase Authentication. Enable it in the Firebase console.';
+    }
+
+    if (code === 'auth/invalid-email') {
+        return 'Enter a valid college email address.';
+    }
+
+    if (code === 'auth/too-many-requests') {
+        return 'Too many failed attempts. Please wait a moment and try again.';
+    }
+
+    return message || 'Login failed. Check your Firebase Authentication settings.';
+}
+
 function performLogin() {
     const email = document.getElementById('loginEmail').value.trim();
     const pwd = document.getElementById('loginPassword').value.trim();
     if (!email || !pwd) return showLoginError('Email and password required.');
     if (!isValidCollegeEmail(email)) return showLoginError('Access restricted: Only @pccoepune.org emails can login.');
+    // If Firebase auth is available and configured, use it; otherwise fallback to local login
+    if (window.signInWithEmail && window.firebaseConfig && window.firebaseConfig.apiKey && window.firebaseConfig.apiKey !== 'YOUR_API_KEY') {
+        window.signInWithEmail(email, pwd)
+            .then(cred => {
+                currentUserEmail = cred.user.email.toLowerCase();
+                localStorage.setItem('campusCartUser', JSON.stringify({ email: currentUserEmail, loggedIn: true }));
+                showMainApp();
+            })
+            .catch(err => {
+                console.error('Firebase login error', err);
+                showLoginError(getLoginErrorMessage(err));
+            });
+        return;
+    }
+
+    // Fallback local session (keeps current sample products behavior)
     currentUserEmail = email.toLowerCase();
     localStorage.setItem('campusCartUser', JSON.stringify({ email: currentUserEmail, loggedIn: true }));
     showMainApp();
@@ -762,6 +902,10 @@ function showMainApp() {
 }
 
 function logout() {
+    // Sign out from Firebase if available
+    if (window.signOut) {
+        window.signOut().catch(() => {});
+    }
     localStorage.removeItem('campusCartUser');
     currentUserEmail = null;
     document.getElementById('loginSection').style.display = 'flex';
@@ -915,7 +1059,32 @@ function init() {
     if (passwordField) passwordField.addEventListener('keypress', loginHandler);
     if (emailField) emailField.addEventListener('keypress', loginHandler);
     
-    checkSession();
+    // If Firebase auth is available, listen for auth state changes and prefer that session
+    if (window.firebaseAuth && window.firebaseConfig && window.firebaseConfig.apiKey && window.firebaseConfig.apiKey !== 'YOUR_API_KEY') {
+        window.firebaseAuth.onAuthStateChanged(user => {
+            if (user && isValidCollegeEmail(user.email)) {
+                currentUserEmail = user.email.toLowerCase();
+                localStorage.setItem('campusCartUser', JSON.stringify({ email: currentUserEmail, loggedIn: true }));
+                showMainApp();
+            } else {
+                localStorage.removeItem('campusCartUser');
+                document.getElementById('loginSection').style.display = 'flex';
+                document.getElementById('mainApp').style.display = 'none';
+            }
+        });
+        // Load remote products and offer migration of local products
+        if (window.firestore) {
+            loadFirestoreProducts();
+            // Offer migration only if there are local products that aren't uploaded
+            const needMigration = allProducts.some(p => !p.firebaseDocId);
+            if (needMigration) {
+                // Ask user to migrate local listings to Firebase
+                setTimeout(() => migrateLocalProductsToFirestore(), 800);
+            }
+        }
+    } else {
+        checkSession();
+    }
 }
 
 // Start the application
