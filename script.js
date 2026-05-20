@@ -644,21 +644,54 @@ function handleDeleteClick(e) {
 // ============================================
 function openProductDetail(productId) {
     const product = allProducts.find(p => p.id == productId);
-    if (!product) return;
+    if (!product) {
+        console.error('Product not found:', productId);
+        return;
+    }
     
+    console.log('Opening product:', product.name, 'Seller:', product.seller);
+    
+    // Add to purchase history (simulate view/buy)
     if (product.seller !== currentUserEmail) {
         addToPurchaseHistory(productId);
     }
     
-    document.getElementById('modalImg').src = product.imageDataURL || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23cccccc'/%3E%3Ctext x='50' y='55' fill='white' text-anchor='middle'%3E📷%3C/text%3E%3C/svg%3E";
-    document.getElementById('modalTitle').innerText = product.name;
-    document.getElementById('modalPrice').innerHTML = `₹${product.price}`;
-    document.getElementById('modalCategory').innerText = product.category;
-    document.getElementById('modalCondition').innerText = product.condition;
-    document.getElementById('modalSeller').innerText = product.seller;
-    document.getElementById('modalDate').innerText = new Date(product.date).toLocaleDateString();
-    document.getElementById('modalDesc').innerText = product.description;
-    document.getElementById('productModal').style.display = 'flex';
+    // Set modal content
+    const modalImg = document.getElementById('modalImg');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalPrice = document.getElementById('modalPrice');
+    const modalCategory = document.getElementById('modalCategory');
+    const modalCondition = document.getElementById('modalCondition');
+    const modalSeller = document.getElementById('modalSeller');
+    const modalDate = document.getElementById('modalDate');
+    const modalDesc = document.getElementById('modalDesc');
+    
+    if (modalImg) modalImg.src = product.imageDataURL || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23cccccc'/%3E%3Ctext x='50' y='55' fill='white' text-anchor='middle'%3E📷%3C/text%3E%3C/svg%3E";
+    if (modalTitle) modalTitle.innerText = product.name;
+    if (modalPrice) modalPrice.innerHTML = `₹${product.price}`;
+    if (modalCategory) modalCategory.innerText = product.category;
+    if (modalCondition) modalCondition.innerText = product.condition;
+    if (modalSeller) modalSeller.innerText = product.seller;
+    if (modalDate) modalDate.innerText = new Date(product.date).toLocaleDateString();
+    if (modalDesc) modalDesc.innerText = product.description;
+    
+    // CRITICAL: Store current product info for contact button
+    window.currentModalProduct = {
+        id: product.id,
+        seller: product.seller,
+        name: product.name
+    };
+    
+    console.log('Product stored in window.currentModalProduct:', window.currentModalProduct);
+    
+    // Update wishlist button state in modal
+    if (typeof updateModalWishlistButton === 'function') {
+        updateModalWishlistButton(product.id);
+    }
+    
+    // Show modal
+    const modal = document.getElementById('productModal');
+    if (modal) modal.style.display = 'flex';
 }
 
 function attachProductClickEvent() {
@@ -1016,17 +1049,49 @@ document.head.appendChild(styleSheet);
 // CONTACT SELLER FUNCTION
 // ============================================
 
+// ============================================
+// CONTACT SELLER FUNCTION - UPDATED
+// ============================================
+
 function contactSeller(sellerEmail, productName) {
+    console.log('Contact Seller called with:', sellerEmail, productName);
+    console.log('Current user email:', currentUserEmail);
+    
     if (!sellerEmail) {
         showToast('Seller email not available', 'error');
         return;
     }
     
+    // Get currently logged-in user email
+    const buyerEmail = currentUserEmail;
+    
+    if (!buyerEmail) {
+        showToast('Please login to contact seller', 'error');
+        return;
+    }
+    
+    // Prepare email subject
     const subject = encodeURIComponent(`Interested in your product: ${productName} on CampusCart`);
-    const body = encodeURIComponent(`Hello,\n\nI'm interested in your product "${productName}" listed on CampusCart. Could you please share more details?\n\nThank you!\n\n- From CampusCart Buyer`);
     
-    window.location.href = `mailto:${sellerEmail}?subject=${subject}&body=${body}`;
+    // Prepare email body with buyer email included
+    const body = encodeURIComponent(
+        `Hello,\n\n` +
+        `I am interested in your product "${productName}" listed on CampusCart.\n\n` +
+        `Buyer Email: ${buyerEmail}\n\n` +
+        `Please let me know if the product is still available and if we can discuss further.\n\n` +
+        `Thank you.\n\n` +
+        `- From CampusCart Buyer`
+    );
     
+    // Create mailto link with seller email as recipient
+    const mailtoLink = `mailto:${sellerEmail}?subject=${subject}&body=${body}`;
+    
+    console.log('Mailto link:', mailtoLink);
+    
+    // Open default email application
+    window.location.href = mailtoLink;
+    
+    // Show success message
     showToast('Opening your email app...', 'success');
 }
 // ============================================
@@ -1749,16 +1814,20 @@ function init() {
     }
     
     // Contact Seller Button in Modal
-    const contactSellerBtn = document.getElementById('contactSellerBtn');
-    if (contactSellerBtn) {
-        contactSellerBtn.addEventListener('click', () => {
-            if (window.currentModalProduct) {
-                contactSeller(window.currentModalProduct.seller, window.currentModalProduct.name);
-            } else {
-                showToast('Product information not available', 'error');
-            }
-        });
-    }
+    // Contact Seller Button in Modal
+const contactSellerBtn = document.getElementById('contactSellerBtn');
+if (contactSellerBtn) {
+    contactSellerBtn.addEventListener('click', () => {
+        console.log('Contact button clicked');
+        console.log('window.currentModalProduct:', window.currentModalProduct);
+        
+        if (window.currentModalProduct && window.currentModalProduct.seller) {
+            contactSeller(window.currentModalProduct.seller, window.currentModalProduct.name);
+        } else {
+            showToast('Product information not available', 'error');
+        }
+    });
+}
     
     // Click outside modal to close
     window.addEventListener('click', (e) => {
