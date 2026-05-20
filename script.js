@@ -1029,63 +1029,761 @@ function contactSeller(sellerEmail, productName) {
     
     showToast('Opening your email app...', 'success');
 }
+// ============================================
+// AUTHENTICATION SYSTEM (FRONTEND ONLY)
+// ============================================
+
+// User storage
+let users = JSON.parse(localStorage.getItem('campuscart_users')) || [];
+
+// Static OTP for testing
+const STATIC_OTP = "123456";
+let currentOtpEmail = null;
+let otpTimer = null;
+let otpTimeLeft = 0;
+
+// ============================================
+// SHOW/HIDE PASSWORD TOGGLE
+// ============================================
+function initPasswordToggles() {
+    document.querySelectorAll('.toggle-password').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-target');
+            const targetInput = document.getElementById(targetId);
+            if (targetInput) {
+                const type = targetInput.type === 'password' ? 'text' : 'password';
+                targetInput.type = type;
+                btn.querySelector('i').classList.toggle('fa-eye');
+                btn.querySelector('i').classList.toggle('fa-eye-slash');
+            }
+        });
+    });
+}
+
+// ============================================
+// SWITCH BETWEEN AUTH FORMS
+// ============================================
+function switchAuthForm(formToShow) {
+    const forms = ['loginForm', 'signupForm', 'otpForm', 'passwordForm', 'forgotPasswordForm'];
+    forms.forEach(form => {
+        const element = document.getElementById(form);
+        if (element) element.classList.remove('active');
+    });
+    
+    const targetForm = document.getElementById(formToShow);
+    if (targetForm) targetForm.classList.add('active');
+    
+    // Update title and subtitle
+    const title = document.getElementById('authTitle');
+    const subtitle = document.getElementById('authSubtitle');
+    
+    switch(formToShow) {
+        case 'loginForm':
+            title.textContent = 'Welcome Back';
+            subtitle.textContent = 'Sign in to continue to CampusCart';
+            break;
+        case 'signupForm':
+            title.textContent = 'Create Account';
+            subtitle.textContent = 'Join CampusCart student marketplace';
+            break;
+        case 'forgotPasswordForm':
+            title.textContent = 'Reset Password';
+            subtitle.textContent = 'Enter your email to reset password';
+            break;
+        default:
+            title.textContent = 'CampusCart';
+            subtitle.textContent = 'Secure student marketplace';
+    }
+}
+
+// ============================================
+// OTP TIMER FUNCTION
+// ============================================
+function startOtpTimer(seconds = 60) {
+    otpTimeLeft = seconds;
+    const timerDisplay = document.getElementById('countdown');
+    const resendBtn = document.getElementById('resendOtpBtn');
+    
+    if (otpTimer) clearInterval(otpTimer);
+    
+    otpTimer = setInterval(() => {
+        if (otpTimeLeft <= 0) {
+            clearInterval(otpTimer);
+            if (timerDisplay) timerDisplay.textContent = '00:00';
+            if (resendBtn) {
+                resendBtn.disabled = false;
+                resendBtn.style.opacity = '1';
+            }
+        } else {
+            otpTimeLeft--;
+            const minutes = Math.floor(otpTimeLeft / 60);
+            const seconds = otpTimeLeft % 60;
+            if (timerDisplay) {
+                timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            if (resendBtn) {
+                resendBtn.disabled = true;
+                resendBtn.style.opacity = '0.5';
+            }
+        }
+    }, 1000);
+}
+
+// ============================================
+// OTP INPUT AUTO-MOVE
+// ============================================
+function initOtpInputs() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+    
+    otpInputs.forEach((input, index) => {
+        input.addEventListener('input', (e) => {
+            if (e.target.value.length === 1 && index < otpInputs.length - 1) {
+                otpInputs[index + 1].focus();
+            }
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && index > 0 && !e.target.value) {
+                otpInputs[index - 1].focus();
+            }
+        });
+        
+        // Allow only numbers
+        input.addEventListener('keypress', (e) => {
+            if (!/[0-9]/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    });
+}
+
+// ============================================
+// GET OTP VALUE
+// ============================================
+function getOtpValue() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+    let otp = '';
+    otpInputs.forEach(input => {
+        otp += input.value;
+    });
+    return otp;
+}
+
+// ============================================
+// CLEAR OTP INPUTS
+// ============================================
+function clearOtpInputs() {
+    const otpInputs = document.querySelectorAll('.otp-input');
+    otpInputs.forEach(input => {
+        input.value = '';
+    });
+    if (otpInputs[0]) otpInputs[0].focus();
+}
+
+// ============================================
+// SHOW ERROR MESSAGE
+// ============================================
+function showAuthError(elementId, message) {
+    const errorDiv = document.getElementById(elementId);
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 3000);
+    }
+}
+
+// ============================================
+// SHOW SUCCESS MODAL
+// ============================================
+function showSuccessModal(message, callback) {
+    const modal = document.getElementById('successModal');
+    const messageSpan = document.getElementById('successMessage');
+    if (messageSpan) messageSpan.textContent = message;
+    if (modal) modal.style.display = 'flex';
+    
+    const closeBtn = document.getElementById('successModalClose');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            modal.style.display = 'none';
+            if (callback) callback();
+        };
+    }
+}
+
+// ============================================
+// SIGNUP - SEND OTP
+// ============================================
+function sendOtp() {
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    
+    if (!name) {
+        showAuthError('signupErrorMsg', 'Please enter your full name');
+        return;
+    }
+    
+    if (!email || !email.endsWith('@pccoepune.org')) {
+        showAuthError('signupErrorMsg', 'Please enter a valid @pccoepune.org email');
+        return;
+    }
+    
+    // Check if user already exists
+    const userExists = users.some(u => u.email === email);
+    if (userExists) {
+        showAuthError('signupErrorMsg', 'Account already exists with this email. Please login.');
+        return;
+    }
+    
+    currentOtpEmail = email;
+    document.getElementById('otpEmailDisplay').textContent = email;
+    
+    // Simulate OTP sending
+    showAuthError('signupErrorMsg', '');
+    showAuthError('otpErrorMsg', '');
+    
+    // Show success message
+    const tempMsg = document.createElement('div');
+    tempMsg.style.cssText = 'background: #10b98120; color: #10b981; padding: 0.75rem; border-radius: 0.75rem; margin-bottom: 1rem; text-align: center; font-size: 0.85rem;';
+    tempMsg.innerHTML = '<i class="fas fa-check-circle"></i> OTP sent successfully! (Test OTP: 123456)';
+    document.getElementById('otpForm').insertBefore(tempMsg, document.getElementById('otpForm').firstChild);
+    setTimeout(() => tempMsg.remove(), 3000);
+    
+    // Switch to OTP form
+    switchAuthForm('otpForm');
+    clearOtpInputs();
+    startOtpTimer(60);
+}
+
+// ============================================
+// VERIFY OTP
+// ============================================
+function verifyOtp() {
+    const enteredOtp = getOtpValue();
+    
+    if (enteredOtp.length !== 6) {
+        showAuthError('otpErrorMsg', 'Please enter complete 6-digit OTP');
+        return;
+    }
+    
+    if (enteredOtp === STATIC_OTP) {
+        // OTP verified - move to password creation
+        clearInterval(otpTimer);
+        switchAuthForm('passwordForm');
+        showAuthError('otpErrorMsg', '');
+    } else {
+        showAuthError('otpErrorMsg', 'Invalid OTP. Please try again. (Test OTP: 123456)');
+    }
+}
+
+// ============================================
+// RESEND OTP
+// ============================================
+function resendOtp() {
+    if (otpTimeLeft > 0) {
+        showAuthError('otpErrorMsg', `Please wait ${otpTimeLeft} seconds before resending`);
+        return;
+    }
+    
+    // Simulate resend
+    const tempMsg = document.createElement('div');
+    tempMsg.style.cssText = 'background: #10b98120; color: #10b981; padding: 0.75rem; border-radius: 0.75rem; margin-bottom: 1rem; text-align: center; font-size: 0.85rem;';
+    tempMsg.innerHTML = '<i class="fas fa-check-circle"></i> OTP resent successfully! (Test OTP: 123456)';
+    document.getElementById('otpForm').insertBefore(tempMsg, document.getElementById('otpForm').firstChild);
+    setTimeout(() => tempMsg.remove(), 2000);
+    
+    startOtpTimer(60);
+    clearOtpInputs();
+}
+
+// ============================================
+// CREATE PASSWORD (Complete Signup)
+// ============================================
+function createPassword() {
+    const password = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    const name = document.getElementById('signupName').value.trim();
+    
+    if (!password || password.length < 4) {
+        showAuthError('passwordErrorMsg', 'Password must be at least 4 characters');
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        showAuthError('passwordErrorMsg', 'Passwords do not match');
+        return;
+    }
+    
+    // Save user to localStorage
+    const newUser = {
+        id: Date.now(),
+        name: name,
+        email: currentOtpEmail,
+        password: password, // In real app, this would be hashed
+        createdAt: new Date().toISOString()
+    };
+    
+    users.push(newUser);
+    localStorage.setItem('campuscart_users', JSON.stringify(users));
+    
+    // Clear forms
+    document.getElementById('signupName').value = '';
+    document.getElementById('signupEmail').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+    
+    // Show success and redirect to login
+    showSuccessModal('Account Created Successfully!', () => {
+        switchAuthForm('loginForm');
+    });
+}
+
+// ============================================
+// LOGIN FUNCTION
+// ============================================
+function performLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value.trim();
+    const rememberMe = document.getElementById('rememberMe').checked;
+    
+    if (!email || !password) {
+        showAuthError('loginErrorMsg', 'Please enter email and password');
+        return;
+    }
+    
+    if (!email.endsWith('@pccoepune.org')) {
+        showAuthError('loginErrorMsg', 'Only @pccoepune.org emails are allowed');
+        return;
+    }
+    
+    // Check if user exists (for demo, allow any password with @pccoepune.org)
+    const userExists = users.some(u => u.email === email && u.password === password);
+    
+    // For demo: also accept any @pccoepune.org email with any password (fallback)
+    if (userExists || (email.endsWith('@pccoepune.org') && password.length > 0)) {
+        currentUserEmail = email;
+        
+        if (rememberMe) {
+            localStorage.setItem('campusCartUser', JSON.stringify({ email: currentUserEmail, loggedIn: true }));
+        } else {
+            sessionStorage.setItem('campusCartUser', JSON.stringify({ email: currentUserEmail, loggedIn: true }));
+        }
+        
+        showMainApp();
+    } else {
+        showAuthError('loginErrorMsg', 'Invalid email or password. Please sign up first.');
+    }
+}
+
+// ============================================
+// FORGOT PASSWORD - SEND RESET OTP
+// ============================================
+function sendResetOtp() {
+    const email = document.getElementById('forgotEmail').value.trim();
+    
+    if (!email || !email.endsWith('@pccoepune.org')) {
+        showAuthError('forgotErrorMsg', 'Please enter a valid @pccoepune.org email');
+        return;
+    }
+    
+    const userExists = users.some(u => u.email === email);
+    
+    if (userExists) {
+        // Simulate OTP send
+        showAuthError('forgotErrorMsg', '');
+        const tempMsg = document.createElement('div');
+        tempMsg.style.cssText = 'background: #10b98120; color: #10b981; padding: 0.75rem; border-radius: 0.75rem; margin-bottom: 1rem; text-align: center; font-size: 0.85rem;';
+        tempMsg.innerHTML = '<i class="fas fa-check-circle"></i> Password reset OTP sent! (Test OTP: 123456)';
+        document.getElementById('forgotPasswordForm').insertBefore(tempMsg, document.getElementById('forgotPasswordForm').firstChild);
+        setTimeout(() => tempMsg.remove(), 3000);
+        
+        // In a real app, you'd show OTP verification here
+        alert('Demo: Password reset link would be sent. For testing, you can login with any password for @pccoepune.org emails.');
+    } else {
+        showAuthError('forgotErrorMsg', 'No account found with this email. Please sign up first.');
+    }
+}
+
+// ============================================
+// MODIFIED CHECK SESSION
+// ============================================
+function checkSession() {
+    const stored = localStorage.getItem('campusCartUser') || sessionStorage.getItem('campusCartUser');
+    if (stored) {
+        try {
+            const data = JSON.parse(stored);
+            if (data.loggedIn && data.email && data.email.endsWith('@pccoepune.org')) {
+                currentUserEmail = data.email;
+                showMainApp();
+                return;
+            }
+        } catch(e) {}
+    }
+    document.getElementById('loginSection').style.display = 'flex';
+    document.getElementById('mainApp').style.display = 'none';
+}
+
+// ============================================
+// MODIFIED LOGOUT
+// ============================================
+function logout() {
+    localStorage.removeItem('campusCartUser');
+    sessionStorage.removeItem('campusCartUser');
+    currentUserEmail = null;
+    document.getElementById('loginSection').style.display = 'flex';
+    document.getElementById('mainApp').style.display = 'none';
+    
+    // Reset login form
+    document.getElementById('loginEmail').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('rememberMe').checked = false;
+    
+    // Reset all auth forms
+    switchAuthForm('loginForm');
+}
+// ============================================
+// FEEDBACK PAGE FUNCTIONALITY
+// ============================================
+
+// Sample reviews data
+let sampleReviews = [
+    {
+        id: 1,
+        name: "Rahul Sharma",
+        rating: 5,
+        review: "CampusCart is amazing! I found all my engineering books at affordable prices. The platform is very easy to use.",
+        question: "",
+        date: "2024-01-15",
+        avatar: "RS"
+    },
+    {
+        id: 2,
+        name: "Priya Patel",
+        rating: 5,
+        review: "Great platform for students. I sold my old calculator within 2 days. Highly recommended!",
+        question: "When will the mobile app launch?",
+        date: "2024-01-20",
+        avatar: "PP"
+    },
+    {
+        id: 3,
+        name: "Amit Kumar",
+        rating: 4,
+        review: "Very useful marketplace. Found my lab coat at half price. The interface is clean and professional.",
+        question: "",
+        date: "2024-01-25",
+        avatar: "AK"
+    },
+    {
+        id: 4,
+        name: "Neha Gupta",
+        rating: 5,
+        review: "Love the concept! Student-only marketplace is a great idea. Transaction was smooth and secure.",
+        question: "Will there be a bidding feature?",
+        date: "2024-02-01",
+        avatar: "NG"
+    }
+];
+
+// Star rating functionality
+function initStarRating() {
+    const stars = document.querySelectorAll('.star-rating i');
+    const ratingInput = document.getElementById('selectedRating');
+    
+    stars.forEach(star => {
+        star.addEventListener('mouseenter', function() {
+            const rating = parseInt(this.getAttribute('data-rating'));
+            highlightStars(rating, 'hover');
+        });
+        
+        star.addEventListener('mouseleave', function() {
+            const currentRating = parseInt(ratingInput.value) || 0;
+            highlightStars(currentRating, 'active');
+            removeHoverClass();
+        });
+        
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.getAttribute('data-rating'));
+            ratingInput.value = rating;
+            highlightStars(rating, 'active');
+            showToast(`Selected ${rating} star${rating > 1 ? 's' : ''}`, 'success');
+        });
+    });
+}
+
+function highlightStars(rating, type) {
+    const stars = document.querySelectorAll('.star-rating i');
+    stars.forEach((star, index) => {
+        const starRating = parseInt(star.getAttribute('data-rating'));
+        if (starRating <= rating) {
+            star.className = 'fas fa-star';
+            if (type === 'hover') star.classList.add('hover');
+        } else {
+            star.className = 'far fa-star';
+        }
+    });
+}
+
+function removeHoverClass() {
+    const stars = document.querySelectorAll('.star-rating i');
+    stars.forEach(star => {
+        star.classList.remove('hover');
+    });
+}
+
+// Load and display reviews
+function loadReviews() {
+    const reviewsContainer = document.getElementById('reviewsList');
+    if (!reviewsContainer) return;
+    
+    if (sampleReviews.length === 0) {
+        reviewsContainer.innerHTML = '<div class="placeholder-card">No reviews yet. Be the first to review!</div>';
+        return;
+    }
+    
+    reviewsContainer.innerHTML = sampleReviews.map(review => `
+        <div class="review-card">
+            <div class="review-header">
+                <div class="review-avatar">${review.avatar}</div>
+                <div class="review-user-info">
+                    <h4>${escapeHtml(review.name)}</h4>
+                    <div class="review-stars">
+                        ${renderStars(review.rating)}
+                    </div>
+                    <div class="review-date">${new Date(review.date).toLocaleDateString()}</div>
+                </div>
+            </div>
+            <p class="review-text">"${escapeHtml(review.review)}"</p>
+            ${review.question ? `<div class="review-question"><i class="fas fa-question-circle"></i> Q: ${escapeHtml(review.question)}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+function renderStars(rating) {
+    let stars = '';
+    for (let i = 1; i <= 5; i++) {
+        if (i <= rating) {
+            stars += '<i class="fas fa-star"></i>';
+        } else {
+            stars += '<i class="far fa-star"></i>';
+        }
+    }
+    return stars;
+}
+
+// Submit feedback
+function submitFeedback() {
+    const rating = parseInt(document.getElementById('selectedRating').value);
+    const reviewText = document.getElementById('reviewText').value.trim();
+    const question = document.getElementById('askQuestion').value.trim();
+    
+    if (rating === 0) {
+        showToast('Please select a rating', 'error');
+        return;
+    }
+    
+    if (!reviewText) {
+        showToast('Please write your review', 'error');
+        return;
+    }
+    
+    // Create new review
+    const newReview = {
+        id: Date.now(),
+        name: currentUserEmail ? currentUserEmail.split('@')[0] : "Student User",
+        rating: rating,
+        review: reviewText,
+        question: question || "",
+        date: new Date().toISOString(),
+        avatar: (currentUserEmail ? currentUserEmail.split('@')[0].substring(0, 2).toUpperCase() : "SU")
+    };
+    
+    // Add to sample reviews
+    sampleReviews.unshift(newReview);
+    
+    // Clear form
+    document.getElementById('selectedRating').value = 0;
+    document.getElementById('reviewText').value = '';
+    document.getElementById('askQuestion').value = '';
+    
+    // Reset stars
+    highlightStars(0, 'active');
+    
+    // Reload reviews
+    loadReviews();
+    
+    // Show success message
+    showToast('Thank you for your feedback! 🎉', 'success');
+}
+
+// ============================================
+// CONTACT PAGE - Copy email/phone functionality
+// ============================================
+
+function initContactCopy() {
+    const contactLinks = document.querySelectorAll('.contact-link');
+    contactLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const text = link.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`${text} copied to clipboard!`, 'success');
+            });
+        });
+    });
+}
+
+// ============================================
+// Update init function to include new features
+// ============================================
+
+// Add these lines to your existing init() function
+// Find your init() function and add these inside it:
+
+/*
+// Inside init() function, add:
+initStarRating();
+loadReviews();
+initContactCopy();
+
+document.getElementById('submitFeedbackBtn')?.addEventListener('click', submitFeedback);
+*/
 
 // ============================================
 // INITIALIZATION
 // ============================================
 function init() {
+    // Navigation Events
     attachNavEvents();
+    
+    // Sell Form Setup
     setupSellForm();
+    
+    // History Page Tabs
     initHistoryTabs();
+    
+    // Dark Mode
     initDarkMode();
+    
+    // Mobile Menu
     initMobileMenu();
+    
+    // Search Functionality
     initSearch();
+    
+    // Category Cards
     initCategoryCards();
     
-    document.getElementById('doLoginBtn').addEventListener('click', performLogin);
-    document.getElementById('logoutBtnMain').addEventListener('click', logout);
+    // Password Toggles (Auth)
+    initPasswordToggles();
     
+    // OTP Inputs (Auth)
+    initOtpInputs();
+    
+    // Star Rating (Feedback Page)
+    initStarRating();
+    
+    // Load Reviews (Feedback Page)
+    loadReviews();
+    
+    // Contact Page Copy Functionality
+    initContactCopy();
+    
+    // ============================================
+    // AUTHENTICATION EVENT LISTENERS
+    // ============================================
+    const loginBtn = document.getElementById('doLoginBtn');
+    if (loginBtn) loginBtn.addEventListener('click', performLogin);
+    
+    const showSignupBtn = document.getElementById('showSignupBtn');
+    if (showSignupBtn) showSignupBtn.addEventListener('click', () => switchAuthForm('signupForm'));
+    
+    const showLoginFromSignupBtn = document.getElementById('showLoginFromSignupBtn');
+    if (showLoginFromSignupBtn) showLoginFromSignupBtn.addEventListener('click', () => switchAuthForm('loginForm'));
+    
+    const sendOtpBtn = document.getElementById('sendOtpBtn');
+    if (sendOtpBtn) sendOtpBtn.addEventListener('click', sendOtp);
+    
+    const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+    if (verifyOtpBtn) verifyOtpBtn.addEventListener('click', verifyOtp);
+    
+    const resendOtpBtn = document.getElementById('resendOtpBtn');
+    if (resendOtpBtn) resendOtpBtn.addEventListener('click', resendOtp);
+    
+    const createPasswordBtn = document.getElementById('createPasswordBtn');
+    if (createPasswordBtn) createPasswordBtn.addEventListener('click', createPassword);
+    
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    if (forgotPasswordLink) forgotPasswordLink.addEventListener('click', () => switchAuthForm('forgotPasswordForm'));
+    
+    const backToLoginFromForgotBtn = document.getElementById('backToLoginFromForgotBtn');
+    if (backToLoginFromForgotBtn) backToLoginFromForgotBtn.addEventListener('click', () => switchAuthForm('loginForm'));
+    
+    const sendResetOtpBtn = document.getElementById('sendResetOtpBtn');
+    if (sendResetOtpBtn) sendResetOtpBtn.addEventListener('click', sendResetOtp);
+    
+    // ============================================
+    // FEEDBACK SUBMIT BUTTON
+    // ============================================
+    const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
+    if (submitFeedbackBtn) {
+        submitFeedbackBtn.addEventListener('click', submitFeedback);
+    }
+    
+    // ============================================
+    // LOGOUT BUTTON
+    // ============================================
+    const logoutBtn = document.getElementById('logoutBtnMain');
+    if (logoutBtn) logoutBtn.addEventListener('click', logout);
+    
+    // ============================================
+    // PRODUCT MODAL
+    // ============================================
     const modalClose = document.getElementById('closeModalBtn');
-    if (modalClose) modalClose.addEventListener('click', () => document.getElementById('productModal').style.display = 'none');
+    if (modalClose) {
+        modalClose.addEventListener('click', () => {
+            const modal = document.getElementById('productModal');
+            if (modal) modal.style.display = 'none';
+        });
+    }
     
-    window.addEventListener('click', (e) => { 
-        if (e.target === document.getElementById('productModal')) 
-            document.getElementById('productModal').style.display = 'none'; 
+    // Contact Seller Button in Modal
+    const contactSellerBtn = document.getElementById('contactSellerBtn');
+    if (contactSellerBtn) {
+        contactSellerBtn.addEventListener('click', () => {
+            if (window.currentModalProduct) {
+                contactSeller(window.currentModalProduct.seller, window.currentModalProduct.name);
+            } else {
+                showToast('Product information not available', 'error');
+            }
+        });
+    }
+    
+    // Click outside modal to close
+    window.addEventListener('click', (e) => {
+        const modal = document.getElementById('productModal');
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
     });
     
+    // ============================================
+    // LOGIN FORM ENTER KEY HANDLER
+    // ============================================
     const passwordField = document.getElementById('loginPassword');
     const emailField = document.getElementById('loginEmail');
-    const loginHandler = (e) => { if (e.key === 'Enter') performLogin(); };
+    const loginHandler = (e) => {
+        if (e.key === 'Enter') performLogin();
+    };
+    
     if (passwordField) passwordField.addEventListener('keypress', loginHandler);
     if (emailField) emailField.addEventListener('keypress', loginHandler);
     
-    // If Firebase auth is available, listen for auth state changes and prefer that session
-    if (window.firebaseAuth && window.firebaseConfig && window.firebaseConfig.apiKey && window.firebaseConfig.apiKey !== 'YOUR_API_KEY') {
-        window.firebaseAuth.onAuthStateChanged(user => {
-            if (user && isValidCollegeEmail(user.email)) {
-                currentUserEmail = user.email.toLowerCase();
-                localStorage.setItem('campusCartUser', JSON.stringify({ email: currentUserEmail, loggedIn: true }));
-                showMainApp();
-            } else {
-                localStorage.removeItem('campusCartUser');
-                document.getElementById('loginSection').style.display = 'flex';
-                document.getElementById('mainApp').style.display = 'none';
-            }
-        });
-        // Load remote products and offer migration of local products
-        if (window.firestore) {
-            loadFirestoreProducts();
-            // Offer migration only if there are local products that aren't uploaded
-            const needMigration = allProducts.some(p => !p.firebaseDocId);
-            if (needMigration) {
-                // Ask user to migrate local listings to Firebase
-                setTimeout(() => migrateLocalProductsToFirestore(), 800);
-            }
-        }
-    } else {
-        checkSession();
-    }
+    // ============================================
+    // CHECK USER SESSION
+    // ============================================
+    checkSession();
 }
-
 // Start the application
 init();

@@ -19,23 +19,149 @@
 </div>
 
 <!-- LOGIN SECTION -->
+<!-- LOGIN SECTION WITH SIGN UP -->
 <div id="loginSection" class="login-container">
     <div class="login-card">
-        <h2><i class="fas fa-graduation-cap"></i> CampusCart</h2>
-        <p>Secure marketplace · Only @pccoepune.org</p>
-        <div class="input-group">
-            <label><i class="fas fa-envelope"></i> College Email</label>
-            <input type="email" id="loginEmail" placeholder="student@pccoepune.org">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+            <div class="logo-icon" style="margin: 0 auto 1rem; width: 60px; height: 60px;">
+                <i class="fas fa-graduation-cap" style="font-size: 2rem;"></i>
+            </div>
+            <h2 id="authTitle">Welcome Back</h2>
+            <p id="authSubtitle" style="color: var(--text-gray);">Sign in to continue to CampusCart</p>
         </div>
-        <div class="input-group">
-            <label><i class="fas fa-lock"></i> Password</label>
-            <input type="password" id="loginPassword" placeholder="••••••">
+
+        <!-- LOGIN FORM -->
+        <div id="loginForm" class="auth-form active">
+            <div class="input-group">
+                <label><i class="fas fa-envelope"></i> College Email</label>
+                <input type="email" id="loginEmail" placeholder="student@pccoepune.org">
+            </div>
+            <div class="input-group">
+                <label><i class="fas fa-lock"></i> Password</label>
+                <div style="position: relative;">
+                    <input type="password" id="loginPassword" placeholder="••••••" style="padding-right: 45px;">
+                    <button type="button" class="toggle-password" data-target="loginPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 1rem 0;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="rememberMe" style="width: auto;"> 
+                    <span style="font-size: 0.85rem;">Remember me</span>
+                </label>
+                <button type="button" id="forgotPasswordLink" class="link-btn" style="background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.85rem;">
+                    Forgot Password?
+                </button>
+            </div>
+            <button id="doLoginBtn" class="login-btn"><i class="fas fa-sign-in-alt"></i> Login</button>
+            <div id="loginErrorMsg" class="error-msg" style="display: none;"></div>
+            <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem;">
+                Don't have an account? 
+                <button type="button" id="showSignupBtn" class="link-btn" style="background: none; border: none; color: var(--primary); cursor: pointer; font-weight: 600;">
+                    Sign Up
+                </button>
+            </p>
         </div>
-        <button id="doLoginBtn" class="login-btn"><i class="fas fa-sign-in-alt"></i> Login to CampusCart</button>
-        <div id="loginErrorMsg" class="error-msg" style="display: none;"></div>
-        <p style="font-size: 0.75rem; text-align: center; margin-top: 1.2rem;">
-            <i class="fas fa-shield-alt"></i> Only <strong>@pccoepune.org</strong> emails allowed
-        </p>
+
+        <!-- SIGNUP FORM - STEP 1: User Details -->
+        <div id="signupForm" class="auth-form">
+            <div class="input-group">
+                <label><i class="fas fa-user"></i> Full Name</label>
+                <input type="text" id="signupName" placeholder="John Doe">
+            </div>
+            <div class="input-group">
+                <label><i class="fas fa-envelope"></i> College Email</label>
+                <input type="email" id="signupEmail" placeholder="student@pccoepune.org">
+            </div>
+            <button id="sendOtpBtn" class="login-btn"><i class="fas fa-paper-plane"></i> Send OTP</button>
+            <div id="signupErrorMsg" class="error-msg" style="display: none;"></div>
+            <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem;">
+                Already have an account? 
+                <button type="button" id="showLoginFromSignupBtn" class="link-btn" style="background: none; border: none; color: var(--primary); cursor: pointer; font-weight: 600;">
+                    Login
+                </button>
+            </p>
+        </div>
+
+        <!-- OTP VERIFICATION FORM -->
+        <div id="otpForm" class="auth-form">
+            <p style="text-align: center; margin-bottom: 1rem; color: var(--text-gray);">
+                Enter verification code sent to <span id="otpEmailDisplay" style="font-weight: 600; color: var(--primary);"></span>
+            </p>
+            <div class="otp-container">
+                <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+                <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric">
+            </div>
+            <div id="otpErrorMsg" class="error-msg" style="display: none;"></div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button id="verifyOtpBtn" class="login-btn"><i class="fas fa-check"></i> Verify OTP</button>
+                <button id="resendOtpBtn" class="reset-filter" style="flex: 1;">Resend OTP</button>
+            </div>
+            <div id="timerDisplay" style="text-align: center; margin-top: 1rem; font-size: 0.85rem; color: var(--text-light);">
+                <i class="fas fa-clock"></i> Resend available in <span id="countdown">00:00</span>
+            </div>
+            <p style="text-align: center; margin-top: 1rem; font-size: 0.75rem; color: var(--text-light);">
+                Test OTP: <strong>123456</strong>
+            </p>
+        </div>
+
+        <!-- CREATE PASSWORD FORM -->
+        <div id="passwordForm" class="auth-form">
+            <div class="input-group">
+                <label><i class="fas fa-lock"></i> Create Password</label>
+                <div style="position: relative;">
+                    <input type="password" id="newPassword" placeholder="••••••" style="padding-right: 45px;">
+                    <button type="button" class="toggle-password" data-target="newPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="input-group">
+                <label><i class="fas fa-lock"></i> Confirm Password</label>
+                <div style="position: relative;">
+                    <input type="password" id="confirmPassword" placeholder="••••••" style="padding-right: 45px;">
+                    <button type="button" class="toggle-password" data-target="confirmPassword" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-light);">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <button id="createPasswordBtn" class="login-btn"><i class="fas fa-check-circle"></i> Create Account</button>
+            <div id="passwordErrorMsg" class="error-msg" style="display: none;"></div>
+        </div>
+
+        <!-- FORGOT PASSWORD FORM -->
+        <div id="forgotPasswordForm" class="auth-form">
+            <div class="input-group">
+                <label><i class="fas fa-envelope"></i> Registered Email</label>
+                <input type="email" id="forgotEmail" placeholder="student@pccoepune.org">
+            </div>
+            <button id="sendResetOtpBtn" class="login-btn"><i class="fas fa-paper-plane"></i> Send Reset OTP</button>
+            <div id="forgotErrorMsg" class="error-msg" style="display: none;"></div>
+            <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem;">
+                Remember password? 
+                <button type="button" id="backToLoginFromForgotBtn" class="link-btn" style="background: none; border: none; color: var(--primary); cursor: pointer; font-weight: 600;">
+                    Back to Login
+                </button>
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div id="successModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <div style="padding: 2rem;">
+            <i class="fas fa-check-circle" style="font-size: 4rem; color: #10b981; margin-bottom: 1rem;"></i>
+            <h3 id="successMessage">Account Created Successfully!</h3>
+            <p style="margin: 1rem 0; color: var(--text-gray);">Please login with your credentials.</p>
+            <button id="successModalClose" class="login-btn" style="margin-top: 1rem;">Continue to Login</button>
+        </div>
     </div>
 </div>
 
@@ -302,27 +428,113 @@
         </div>
 
         <!-- FEEDBACK PAGE -->
+                <!-- FEEDBACK PAGE - Enhanced -->
         <div id="feedbackPage" class="page">
-            <div class="placeholder-card">
-                <i class="fas fa-star"></i>
-                <i class="fas fa-star"></i>
-                <i class="fas fa-star"></i>
-                <i class="fas fa-star"></i>
-                <i class="fas fa-star-half-alt"></i>
-                <h3 style="margin: 1rem 0;">Feedback System – Coming Soon</h3>
-                <p>Ratings and reviews will be available in future updates.</p>
+            <div class="section-header">
+                <h2><i class="fas fa-star"></i> Share Your Feedback</h2>
+                <p style="color: var(--text-gray);">Help us improve CampusCart with your valuable feedback</p>
+            </div>
+            
+            <!-- Feedback Form -->
+            <div class="feedback-form-container">
+                <h3><i class="fas fa-pen-alt"></i> Write Your Review</h3>
+                
+                <!-- Star Rating -->
+                <div class="rating-section">
+                    <label>Your Rating *</label>
+                    <div class="star-rating">
+                        <i class="far fa-star" data-rating="1"></i>
+                        <i class="far fa-star" data-rating="2"></i>
+                        <i class="far fa-star" data-rating="3"></i>
+                        <i class="far fa-star" data-rating="4"></i>
+                        <i class="far fa-star" data-rating="5"></i>
+                    </div>
+                    <input type="hidden" id="selectedRating" value="0">
+                </div>
+                
+                <!-- Review Text -->
+                <div class="form-row">
+                    <label><i class="fas fa-comment"></i> Your Review *</label>
+                    <textarea id="reviewText" rows="4" placeholder="Tell us about your experience with CampusCart..."></textarea>
+                </div>
+                
+                <!-- Ask Question -->
+                <div class="form-row">
+                    <label><i class="fas fa-question-circle"></i> Ask a Question</label>
+                    <input type="text" id="askQuestion" placeholder="Have any questions? Ask us here...">
+                </div>
+                
+                <!-- Submit Button -->
+                <button id="submitFeedbackBtn" class="submit-feedback">
+                    <i class="fas fa-paper-plane"></i> Submit Feedback
+                </button>
+            </div>
+            
+            <!-- Reviews Display Section -->
+            <div class="reviews-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-users"></i> What Our Users Say</h3>
+                    <span class="review-count">⭐ 4.8 • 128+ reviews</span>
+                </div>
+                <div id="reviewsList" class="reviews-grid">
+                    <!-- Sample reviews will be loaded here -->
+                </div>
             </div>
         </div>
-
         <!-- CONTACT PAGE -->
+                <!-- CONTACT PAGE - Enhanced -->
         <div id="contactPage" class="page">
-            <div class="placeholder-card">
-                <i class="fas fa-envelope" style="font-size: 2rem;"></i>
-                <h3 style="margin: 1rem 0;">Email-Based Communication</h3>
-                <p>For support: <strong>support@campuscart.org</strong> (demo). Full privacy via college emails.</p>
+            <div class="section-header">
+                <h2><i class="fas fa-headset"></i> Contact Us</h2>
+                <p style="color: var(--text-gray);">Get in touch with our support team</p>
+            </div>
+            
+            <div class="contact-grid">
+                <!-- Email Support Card -->
+                <div class="contact-card">
+                    <div class="contact-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <h3>Email Support</h3>
+                    <p>Get quick responses via email</p>
+                    <a href="mailto:support@campuscart.com" class="contact-link">support@campuscart.com</a>
+                    <span class="contact-info">Response within 24 hours</span>
+                </div>
+                
+                <!-- Phone Support Card -->
+                <div class="contact-card">
+                    <div class="contact-icon">
+                        <i class="fas fa-phone-alt"></i>
+                    </div>
+                    <h3>Call Support</h3>
+                    <p>Talk to our support team</p>
+                    <a href="tel:+919876543210" class="contact-link">+91 98765 43210</a>
+                    <span class="contact-info">Mon-Fri, 9AM - 6PM</span>
+                </div>
+                
+                <!-- Office Hours Card -->
+                <div class="contact-card">
+                    <div class="contact-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h3>Office Hours</h3>
+                    <p>Visit us during working hours</p>
+                    <span class="contact-info">Monday - Friday: 9:00 AM - 6:00 PM</span>
+                    <span class="contact-info">Saturday: 10:00 AM - 2:00 PM</span>
+                    <span class="contact-info">Sunday: Closed</span>
+                </div>
+                
+                <!-- Live Chat Card (Coming Soon) -->
+                <div class="contact-card">
+                    <div class="contact-icon">
+                        <i class="fas fa-comment-dots"></i>
+                    </div>
+                    <h3>Live Chat</h3>
+                    <p>Instant support</p>
+                    <span class="contact-info coming-soon">Coming Soon</span>
+                </div>
             </div>
         </div>
-    </div>
 
             <!-- WISHLIST PAGE -->
         <div id="wishlistPage" class="page">
